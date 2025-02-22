@@ -114,12 +114,39 @@ defmodule UlfNet.JSONLDTest do
     end
   end
 
-  setup _ do
-    %{document: JSON.LD.expand(JSON.decode!(@document))}
+  setup_all do
+    UlfNet.JSONLD.Loader.cache(
+      "https://w3id.org/security/v1",
+      JSON.decode!(File.read!("test/sec.json"))
+    )
+
+    UlfNet.JSONLD.Loader.cache(
+      "https://www.w3.org/ns/activitystreams",
+      JSON.decode!(File.read!("test/as.json"))
+    )
+
+    :ok
+  end
+
+  setup do
+    json = JSON.decode!(@document)
+    context = JSON.LD.Context.create(json, document_loader: UlfNet.JSONLD.Loader)
+    %{context: context, document: JSON.LD.expand(json, document_loader: UlfNet.JSONLD.Loader)}
   end
 
   test "fetches properties", %{document: [document]} do
     assert [image] = Person.image(document)
+
+    assert %{
+             "@type" => ["https://www.w3.org/ns/activitystreams#Image"],
+             "https://www.w3.org/ns/activitystreams#mediaType" => [
+               %{"@value" => "image/jpeg"}
+             ],
+             "https://www.w3.org/ns/activitystreams#url" => [
+               %{"@id" => "http://example.com/image.jpg"}
+             ]
+           } = image
+
     assert [%{"@value" => "image/jpeg"}] = Image.media_type(image)
     assert [%{"@id" => "http://example.com/image.jpg"}] = Image.url(image)
   end
